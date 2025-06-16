@@ -1,0 +1,47 @@
+// BrowserPassView/Program.cs
+using System;
+using System.IO;
+
+namespace DummyBrowserPassView
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            // Expected usage: DummyBrowserPassView.exe /stext "<path>\data.txt"
+            if (args.Length == 2 && args[0].Equals("/stext", StringComparison.OrdinalIgnoreCase))
+            {
+                var outputPath = args[1].Trim('"');
+
+                try
+                {
+                    // Ensure directory exists
+                    Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? 
+                                              Environment.CurrentDirectory);
+
+                    // Write dummy header
+                    File.WriteAllText(outputPath,
+                        "URL,UserName,Password" + Environment.NewLine);
+
+                    // Write some fake entries
+                    File.AppendAllText(outputPath,
+                        "https://example.com,alice@example.com,Passw0rd!" + Environment.NewLine);
+                    File.AppendAllText(outputPath,
+                        "https://mail.contoso.com,bob@contoso.com,P@55w0rd" + Environment.NewLine);
+
+                    Console.WriteLine($"[+] DummyBrowserPassView wrote {outputPath}");
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Error writing output: {ex.Message}");
+                    Environment.Exit(1);
+                }
+            }
+            else
+            {
+                Console.WriteLine("Usage: DummyBrowserPassView.exe /stext \"<outputFile>\"");
+                Environment.Exit(1);
+            }
+        }
+    }
+}
